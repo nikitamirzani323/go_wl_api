@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,8 +24,12 @@ func Fetch_admin() (helpers.Response, error) {
 
 	var no int = 0
 	sql_select := `SELECT 
-			username , idadminrule,name,statuslogin,  
-			COALESCE(lastlogin,""), COALESCE(joindate,"")  
+			username , idadmin, name, statuslogin,  
+			to_char(lastlogin,'YYYY-MM-DD HH24:mm:ss') as lastlogin, 
+			to_char(joindate,'YYYY-MM-DD') as joindate, 
+			ipaddress, timezone, 
+			createadmin, to_char(createdateadmin,'YYYY-MM-DD HH24:mm:ss') as createdateadmin,  
+			updateadmin, to_char(updatedateadmin,'YYYY-MM-DD HH24:mm:ss') as  updatedateadmin 
 			FROM ` + config.DB_tbl_mst_admin + ` 
 			ORDER BY username ASC 
 		`
@@ -35,22 +38,28 @@ func Fetch_admin() (helpers.Response, error) {
 	for row.Next() {
 		no++
 		var (
-			idadminrule_db                       int
-			username_db, name_db, statuslogin_db string
-			lastlogin_db, joindate_db            string
+			username_db, idadmin_db, name_db, statuslogin_db, ipaddress_db, timezone_db                       string
+			lastlogin_db, joindate_db, createadmin_db, createdateadmin_db, updateadmin_db, updatedateadmin_db string
 		)
 
 		err = row.Scan(
-			&username_db, &idadminrule_db, &name_db, &statuslogin_db,
-			&lastlogin_db, &joindate_db)
+			&username_db, &idadmin_db, &name_db, &statuslogin_db,
+			&lastlogin_db, &joindate_db, &ipaddress_db, &timezone_db,
+			&createadmin_db, &createdateadmin_db, &updateadmin_db, &updatedateadmin_db)
 		helpers.ErrorCheck(err)
 
 		obj.Admin_username = username_db
-		obj.Admin_idadminrule = idadminrule_db
+		obj.Admin_idadminrule = idadmin_db
 		obj.Admin_name = name_db
 		obj.Admin_statuslogin = statuslogin_db
+		obj.Admin_ipaddres = ipaddress_db
+		obj.Admin_timezone = timezone_db
 		obj.Admin_lastlogin = lastlogin_db
 		obj.Admin_joindate = joindate_db
+		obj.Admin_createadmin = createadmin_db
+		obj.Admin_createdateadmin = createdateadmin_db
+		obj.Admin_updateadmin = updateadmin_db
+		obj.Admin_updatedateadmin = updatedateadmin_db
 		arraobj = append(arraobj, obj)
 		msg = "Success"
 	}
@@ -63,7 +72,8 @@ func Fetch_admin() (helpers.Response, error) {
 
 	return res, nil
 }
-func Save_domain(admin, username, password, name, status, sData string, idrecord, idadminrule int) (helpers.Response, error) {
+
+func Save_admin(admin, username, password, idadminrule, name, status, sData string) (helpers.Response, error) {
 	var res helpers.Response
 	msg := "Failed"
 	tglnow, _ := goment.New()
@@ -76,16 +86,18 @@ func Save_domain(admin, username, password, name, status, sData string, idrecord
 			sql_insert := `
 				insert into
 				` + config.DB_tbl_mst_admin + ` (
-					username , password, idadminrule, name, statuslogin
+					username , password, idadmin, name, statuslogin, 
+					joindate, ipaddress, timezone, createadmin, createdateadmin 
 				) values (
 					$1, $2, $3, $4, $5,
+					$6, $7, $8, $9, $10 
 				)
 			`
-			field_column := config.DB_tbl_mst_admin + tglnow.Format("YYYY")
-			idrecord_counter := Get_counter(field_column)
+
 			flag_insert, msg_insert := Exec_SQL(sql_insert, config.DB_tbl_mst_admin, "INSERT",
-				tglnow.Format("YY")+strconv.Itoa(idrecord_counter), username, idadminrule, name,
-				status)
+				username, password, idadminrule, name, status,
+				tglnow.Format("YYYY-MM-DD"), "192.168.23.01", "Asia/Jakarta",
+				admin, tglnow.Format("YYYY-MM-DD HH:mm:ss"))
 
 			if flag_insert {
 				flag = true
@@ -98,40 +110,32 @@ func Save_domain(admin, username, password, name, status, sData string, idrecord
 			msg = "Duplicate Entry"
 		}
 	} else {
-		sql_update := `
-				UPDATE 
-				` + config.DB_tbl_mst_domain + `  
-				SET nmdomain =?, statusdomain=?, tipedomain=?,
-				updatedomain=?, updatedatedomain=? 
-				WHERE iddomain =? 
-			`
+		// sql_update := `
+		// 		UPDATE
+		// 		` + config.DB_tbl_mst_admin + `
+		// 		SET password =?, statusdomain=?, tipedomain=?,
+		// 		updatedomain=?, updatedatedomain=?
+		// 		WHERE iddomain =?
+		// 	`
 
-		flag_update, msg_update := Exec_SQL(sql_update, config.DB_tbl_mst_domain, "UPDATE",
-			nmdomain, status, tipe,
-			admin,
-			tglnow.Format("YYYY-MM-DD HH:mm:ss"),
-			idrecord)
+		// flag_update, msg_update := Exec_SQL(sql_update, config.DB_tbl_mst_admin, "UPDATE",
+		// 	nmdomain, status, tipe,
+		// 	admin,
+		// 	tglnow.Format("YYYY-MM-DD HH:mm:ss"),
+		// 	idrecord)
 
-		if flag_update {
-			flag = true
-			msg = "Succes"
-			log.Println(msg_update)
-		} else {
-			log.Println(msg_update)
-		}
+		// if flag_update {
+		// 	flag = true
+		// 	msg = "Succes"
+		// 	log.Println(msg_update)
+		// } else {
+		// 	log.Println(msg_update)
+		// }
 	}
-
-	if flag {
-		res.Status = fiber.StatusOK
-		res.Message = msg
-		res.Record = nil
-		res.Time = time.Since(render_page).String()
-	} else {
-		res.Status = fiber.StatusBadRequest
-		res.Message = msg
-		res.Record = nil
-		res.Time = time.Since(render_page).String()
-	}
+	res.Status = fiber.StatusOK
+	res.Message = msg
+	res.Record = nil
+	res.Time = time.Since(render_page).String()
 
 	return res, nil
 }

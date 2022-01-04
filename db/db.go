@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -54,6 +55,7 @@ func Init() {
 	db.SetConnMaxLifetime(60 * time.Minute)
 	err = db.Ping()
 	helpers.ErrorCheck(err)
+	log.Println("Connect DB Success")
 }
 func CreateCon() *sql.DB {
 	return db

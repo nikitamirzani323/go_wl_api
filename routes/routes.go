@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/nikitamirzani323/go_wl_api/controllers"
 )
 
 func Init() *fiber.App {
@@ -27,5 +28,6 @@ func Init() *fiber.App {
 			"Subdomain":   c.Subdomains(),
 		})
 	})
+	app.Post("/api/admin", controllers.Adminhome)
 	return app
 }
